@@ -1,0 +1,271 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <link href="https://cdn.datatables.net/v/dt/dt-2.0.7/datatables.min.css" rel="stylesheet"> 
+    <script src="https://cdn.datatables.net/v/dt/dt-2.0.7/datatables.min.js"></script>
+  </head>
+  <body>
+    <div style="height: 30px;"></div>
+    <div class="text-3xl font-bold" style="text-align: center;">Solana Trading Bot - Dev</div>
+    <div style="height: 30px;"></div>
+    <div style="text-align: center; height: 30px;">
+      Private Key: &nbsp; <input type="password" size="80" name="privateKey" id="privateKey" value=""> (Your Wallet private key)
+    </div>
+    <div style="text-align: center; height: 30px;">
+      Token Address: <input type="text" size="80" name="tokenAddress" id="tokenAddress" value="HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh"> (Token Address to monitor)
+    </div>
+    <div style="text-align: center; height: 30px;">
+      Buy Slipage: <input type="text" size="3" name="buySlipage" id="buySlipage" value="50"> % &nbsp;&nbsp;
+      Sell Slipage: <input type="text" size="3" name="sellSlipage" id="sellSlipage" value="50"> % &nbsp;&nbsp;&nbsp;
+      Buy Amount: <input type="text" size="8" name="buyAmount" id="buyAmount" value="0.01"> SOL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      <button id="startMonitor">Start trading</button>
+      <button id="stopMonitor">Stop trading</button>
+      <!-- <button id="testBundle">Test Buy</button> -->
+    </div>
+    <!-- <div style="text-align: center; height: 30px;">
+      <button id="startTrading">Start trading</button>
+      <button id="stopTrading">Stop trading</button>
+    </div> -->
+    <div id="price-timeline"></div>
+    <div>
+      <table id="example" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th>DATE</th>
+                <th>TYPE</th>
+                <th>TOKEN</th>
+                <th>SOL</th>
+                <th>PRICE SOL</th>
+                <th>PRICE USD</th>
+                <th>Bundle</th>
+            </tr>
+        </thead>
+      </table>
+    </div>
+  </body>
+</html>
+<script type="text/javascript">
+  let priceData = [];
+
+  const options = {
+    series: [{
+      data: priceData
+    }],
+    chart: {
+      id: 'price-datetime',
+      type: 'area',
+      height: 200,
+      zoom: {
+        autoScaleYaxis: true
+      }
+    },
+    annotations: {
+      yaxis: [{
+        y: 30,
+        borderColor: '#999',
+        label: {
+          show: true,
+          text: 'Support',
+          style: {
+            color: "#fff",
+            background: '#00E396'
+          }
+        }
+      }],
+      xaxis: [{
+        x: new Date().getTime(),
+        borderColor: '#999',
+        yAxisIndex: 0,
+        label: {
+          show: true,
+          text: 'Price',
+          style: {
+            color: "#fff",
+            background: '#775DD0'
+          }
+        }
+      }]
+    },
+    dataLabels: {
+      enabled: false
+    },
+    markers: {
+      size: 0,
+      style: 'hollow',
+    },
+    xaxis: {
+      type: 'datetime',
+      //min: new Date('01 Jan 2012').getTime(),
+      tickAmount: 6,    
+      categories: priceData?.map((data) => data[0]),
+    },
+    yaxis: {
+      // labels: {
+      //   formatter: function (val: number) {
+      //     return (val / 1000000).toFixed(0);
+      //   },
+      // },
+      title: {
+        text: "Price",
+      },
+    },
+    tooltip: {
+      x: {
+        format: 'dd MMM yyyy hh:mm:ss'
+      }
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.7,
+        opacityTo: 0.9,
+        stops: [0, 100]
+      }
+    },
+  };
+
+  const chart = new ApexCharts(document.querySelector("#price-timeline"), options);
+  chart.render();
+
+  const txsTable = new DataTable('#example', {
+    columnDefs: [{ orderable: false, targets: [1, 2, 3, 4, 5, 6] }],
+    order: [[0, 'desc']],
+  });
+
+  const serverAddress = 'https://solbot-mbull.duckdns.org';
+  let eventSource;
+  $("#startMonitor").on("click", function() {
+    const privateKey = $("#privateKey").val();
+    if(privateKey === '') {
+      alert("Please enter private key!");
+      return;
+    }
+
+    const tokenAddress = $("#tokenAddress").val();
+    if(tokenAddress === '') {
+      alert("Please enter token address!");
+      return;
+    }
+
+    let buySlipage = 0;
+    try {
+      buySlipage = parseInt($("#buySlipage").val())
+    }
+    catch(e) {
+      alert("Please enter correct buy slipage!");
+      return;
+    }
+
+    let sellSlipage = 0;
+    try {
+      sellSlipage = parseInt($("#sellSlipage").val())
+    }
+    catch(e) {
+      alert("Please enter correct sell slipage!");
+      return;
+    }
+
+    let buyAmount = 0;
+    try {
+      buyAmount = parseFloat($("#buyAmount").val())
+    }
+    catch(e) {
+      alert("Please enter the correct amount to buy!");
+      return;
+    }
+
+    $.ajax({
+      url: `${serverAddress}/startMonitoring`,
+      type: "POST",
+      data: {
+        privateKey,
+        tokenAddress,
+        buySlipage,
+        sellSlipage,
+        buyAmount,
+      },
+      success: function(response) {
+        console.log(response);
+      },
+      error: function() {}
+    });
+
+    eventSource && eventSource.close();
+
+    eventSource = new EventSource(`${serverAddress}/sse/substxs`);
+    
+    eventSource.onmessage = ({ data }) => {
+      const activities = JSON.parse(data);
+      if(activities.length === 0) {
+        return;
+      }
+
+      for(const activity of activities) {
+        priceData.push([activity.id, activity.state.tokenPriceSOL]);
+
+        let tradingInfo = "";
+        if (activity.state.trading) {
+          tradingInfo = activity.state.trading.type === 0 ? "Trading BUY" : `Trading SELL, Profit: ${activity.state.trading.profit}`
+        }
+
+        txsTable.row.add([
+          new Date(activity.id).toISOString(), 
+          activity.state.transactionType === 0 ? "BUY" : "SELL", 
+          activity.state.transactionBaseAmount, 
+          toPlainString(activity.state.transactionQuoteAmount), 
+          activity.state.tokenPriceSOL.toFixed(14), 
+          activity.state.tokenPriceUSB.toFixed(14),
+          activity.state.bundle ? `DIFF: ${toPlainString(activity.state.bundle.diff)}<br>BUY SLIPPAGE: ${activity.state.bundle.buySlippage}%<br>SELL SLIPPAGE: ${activity.state.bundle.sellSlippage}%` : 
+          activity.state.trading ? tradingInfo : "",
+        ]).draw(false);
+      }
+      
+      ApexCharts.exec('price-datetime', 'updateSeries', [{
+        data: priceData
+      }], true);
+    }
+  });
+
+  $("#stopMonitor").on("click", function() {
+    $.getJSON(`${serverAddress}/stopMonitoring`, function(response) {
+      console.log(response);
+    });
+
+    eventSource && eventSource.close();
+  });
+
+  $("#startTrading").on("click", function() {
+    $.getJSON(`${serverAddress}/startTrading`, function(response) {
+      console.log(response);
+    });
+  });
+
+  $("#stopTrading").on("click", function() {
+    $.getJSON(`${serverAddress}/stopTrading`, function(response) {
+      console.log(response);
+    });
+
+    eventSource && eventSource.close();
+  });
+
+  $("#testBundle").on("click", function() {
+    $.getJSON(`${serverAddress}/bundle`, function(response) {
+      console.log(response);
+    });
+  });
+
+  const toPlainString = (num) => {
+    return ('' + +num).replace(
+      /(-?)(\d*)\.?(\d*)e([+-]\d+)/,
+      function (a, b, c, d, e) {
+        return e < 0
+          ? b + '0.' + Array(1 - +e - c.length).join('0') + c + d
+          : b + c + d + Array(+e - d.length + 1).join('0');
+      },
+    );
+  };
+</script>
