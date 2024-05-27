@@ -54,17 +54,25 @@ export class SnipingBot {
   }
 
   public async shouldBuy(poolSize: TokenAmount, baseMint: PublicKey) {
-    if (!this.config.minPoolSizeAmount.isZero()) {
-      if (poolSize.lt(this.config.minPoolSizeAmount)) {
-        return false;
-      }
+    // if (!this.config.minPoolSizeAmount.isZero()) {
+    //   if (poolSize.lt(this.config.minPoolSizeAmount)) {
+    //     return false;
+    //   }
+    // }
+
+    // if (!this.config.maxPoolSizeAmount.isZero()) {
+    //   if (poolSize.gt(this.config.maxPoolSizeAmount)) {
+    //     return false;
+    //   }
+    // }
+
+    if (
+      poolSize.lt(this.config.minPoolSizeAmount) ||
+      poolSize.gt(this.config.maxPoolSizeAmount)
+    ) {
+      return false;
     }
 
-    if (!this.config.maxPoolSizeAmount.isZero()) {
-      if (poolSize.gt(this.config.maxPoolSizeAmount)) {
-        return false;
-      }
-    }
     if (this.config.checkRenounced) {
       const mintOption = await this.checkMintable(baseMint);
 

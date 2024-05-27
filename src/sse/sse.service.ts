@@ -222,7 +222,7 @@ export class SseService {
     // const exists = await poolCache.get(poolState.baseMint.toString());
 
     this.tradingPoolId = updatedAccountInfo.accountId.toString();
-    // console.log('this.tradingPoolId ', this.tradingPoolId);
+
     const baseDecimal = Number(poolState.baseDecimal);
     const quoteDecimal = Number(poolState.quoteDecimal);
 
@@ -458,7 +458,7 @@ export class SseService {
 
     const botConfig: BotConfig = {
       wallet: this.wallet,
-      checkRenounced: startPoolSnipingDto.checkRenounced,
+      checkRenounced: startPoolSnipingDto.checkLocked,
       checkFreezable: false,
       checkBurned: false,
       minPoolSizeAmount: quoteMinPoolSizeAmount,
@@ -509,8 +509,7 @@ export class SseService {
     );
     const poolOpenTime = parseInt(poolState.poolOpenTime.toString());
     const existing = await this.poolCache.get(poolState.baseMint.toString());
-
-    if (poolOpenTime < this.sniperRunTimestamp && !existing) {
+    if (poolOpenTime > this.sniperRunTimestamp && !existing) {
       this.poolCache.save(key, poolState);
       const poolSize = new TokenAmount(
         this.quoteToken,

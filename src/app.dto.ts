@@ -10,7 +10,7 @@ export class StartPoolSnipingDto {
   privateKey: string;
   minPoolSizeAmount: number;
   maxPoolSizeAmount: number;
-  checkRenounced: boolean;
+  checkLocked: boolean;
   buySlipage: number;
   sellSlipage: number;
   buyAmount: number;
