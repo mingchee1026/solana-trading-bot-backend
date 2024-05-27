@@ -558,9 +558,9 @@ export class SseService {
 
           this.snipingCache.save(new Date().getTime(), activity);
 
-          // if (this.snipingBot) {
-          //   this.snipingBot.buyWithCommon(key, poolState.baseMint.toBase58());
-          // }
+          if (this.snipingBot) {
+            this.snipingBot.buyWithCommon(key, poolState.baseMint.toBase58());
+          }
 
           return;
         }
