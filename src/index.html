@@ -20,16 +20,17 @@
     <div style="text-align: center; height: 30px;">
       Buy Slipage: <input type="text" size="3" name="buySlipage" id="buySlipage" value="50"> % &nbsp;&nbsp;
       Sell Slipage: <input type="text" size="3" name="sellSlipage" id="sellSlipage" value="50"> % &nbsp;&nbsp;&nbsp;
-      Buy Amount: <input type="text" size="8" name="buyAmount" id="buyAmount" value="0.01"> SOL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      Buy Amount: <input type="text" size="8" name="buyTradingAmount" id="buyTradingAmount" value="0.01"> SOL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
       <button id="startTrading">Start Token Trading</button>
       <button id="stopTrading">Stop Token Trading</button>
       <!-- <button id="testBundle">Test Buy</button> -->
     </div>
     <div style="text-align: center; height: 10px;"></div>
     <div style="text-align: center; height: 30px;">
-      Min Pool Size: <input type="text" size="3" name="minPoolSizeAmount" id="minPoolSizeAmount" value="3"> SOL &nbsp;&nbsp;
-      Max Pool Size: <input type="text" size="3" name="maxPoolSizeAmount" id="maxPoolSizeAmount" value="8"> SOL &nbsp;&nbsp;&nbsp;
-      <input type="checkbox" size="8" name="checkLocked" id="checkLocked"> Check Locked &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      Min Pool Size: <input type="text" size="3" name="minPoolSizeAmount" id="minPoolSizeAmount" value="8"> SOL &nbsp;&nbsp;
+      Max Pool Size: <input type="text" size="3" name="maxPoolSizeAmount" id="maxPoolSizeAmount" value="0"> SOL &nbsp;&nbsp;&nbsp;
+      Buy Amount: <input type="text" size="8" name="buySnipingAmount" id="buySnipingAmount" value="0.01"> SOL &nbsp;&nbsp;&nbsp;
+      <input type="checkbox" size="8" name="checkLocked" id="checkLocked" checked> Check Locked &nbsp;&nbsp;&nbsp;&nbsp;
       <button id="startSniping">Start Pool Sniping</button>
       <button id="stopSniping">Stop Pool Sniping</button>
       <!-- <button id="testBundle">Test Buy</button> -->
@@ -62,6 +63,7 @@
                 <th>DATE</th>
                 <th>POOL</th>
                 <th>TOKEN</th>
+                <th>LOCKED</th>
                 <th>POOL SIZE</th>
                 <th>SNIPING</th>
             </tr>
@@ -162,11 +164,11 @@
 
   const snipingTable = new DataTable('#snipingTable', {
     lengthMenu: [5, 10, 25, 50, 75, 100],
-    columnDefs: [{ orderable: false, targets: [1, 2, 3, 4] }],
+    columnDefs: [{ orderable: false, targets: [1, 2, 3, 4, 5] }],
     order: [[0, 'desc']],
   });
 
-  const serverAddress = 'http://localhost:8000'; //'https://solbot-mbull.duckdns.org';
+  const serverAddress = 'https://solbot-mbull.duckdns.org';
   let eventSource;
 
   startEventSource();
@@ -211,7 +213,8 @@
         snipingTable.row.add([
           new Date(activity.id).toISOString(), 
           activity.state.poolId, 
-          activity.state.tokenAddress, 
+          activity.state.tokenAddress,
+          activity.state.isLocked,
           activity.state.poolSize, 
           activity.state.buying ? 'BUY' : "",
         ]).draw(false);
@@ -252,7 +255,7 @@
 
     let buyAmount = 0;
     try {
-      buyAmount = parseFloat($("#buyAmount").val())
+      buyAmount = parseFloat($("#buyTradingAmount").val())
     }
     catch(e) {
       alert("Please enter the correct amount to buy!");
@@ -383,7 +386,7 @@
 
     let buyAmount = 0;
     try {
-      buyAmount = parseFloat($("#buyAmount").val())
+      buyAmount = parseFloat($("#buySnipingAmount").val())
     }
     catch(e) {
       alert("Please enter the correct amount to buy!");

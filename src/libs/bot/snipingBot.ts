@@ -30,58 +30,61 @@ export class SnipingBot {
     readonly config: BotConfig,
   ) {}
 
-  private async checkMintable(vault: PublicKey) {
+  public async checkPoolSize(poolSize: TokenAmount) {
+    let inRange = true;
     try {
-      const { data } = await this.connection
-        .getAccountInfo(vault)
-        .catch(async () => {
-          await this.sleep(1000);
-          return this.connection.getAccountInfo(vault).catch(() => null);
-        });
+      if (!this.config.maxPoolSizeAmount?.isZero()) {
+        inRange = poolSize.raw.lte(this.config.maxPoolSizeAmount.raw);
 
-      if (!data) {
-        return false;
+        if (!inRange) {
+          console.log(
+            `PoolSize -> Pool size ${poolSize.toFixed()} > ${this.config.maxPoolSizeAmount.toFixed()}`,
+          );
+          return false;
+        }
       }
 
-      const deserialize = MintLayout.decode(data);
-      return deserialize.mintAuthorityOption === 0;
-    } catch (e) {
-      console.log('error in checking mint');
-      console.log(`mint: ${vault}, Failed to check if mint is renounced`);
-    }
+      if (!this.config.minPoolSizeAmount?.isZero()) {
+        inRange = poolSize.raw.gte(this.config.minPoolSizeAmount.raw);
+
+        if (!inRange) {
+          console.log(
+            `PoolSize -> Pool size ${poolSize.toFixed()} < ${this.config.minPoolSizeAmount.toFixed()}`,
+          );
+          return false;
+        }
+      }
+
+      return inRange;
+    } catch (error) {}
 
     return false;
   }
 
-  public async shouldBuy(poolSize: TokenAmount, baseMint: PublicKey) {
-    // if (!this.config.minPoolSizeAmount.isZero()) {
-    //   if (poolSize.lt(this.config.minPoolSizeAmount)) {
-    //     return false;
-    //   }
-    // }
+  public async checkLocked(baseMint: PublicKey) {
+    try {
+      const accountInfo = await this.connection.getAccountInfo(
+        baseMint,
+        this.connection.commitment,
+      );
 
-    // if (!this.config.maxPoolSizeAmount.isZero()) {
-    //   if (poolSize.gt(this.config.maxPoolSizeAmount)) {
-    //     return false;
-    //   }
-    // }
-
-    if (
-      poolSize.lt(this.config.minPoolSizeAmount) ||
-      poolSize.gt(this.config.maxPoolSizeAmount)
-    ) {
-      return false;
-    }
-
-    if (this.config.checkRenounced) {
-      const mintOption = await this.checkMintable(baseMint);
-
-      if (mintOption !== true) {
+      if (!accountInfo?.data) {
+        console.log('RenouncedFreeze -> Failed to fetch account data');
         return false;
       }
-    }
 
-    return true;
+      const deserialize = MintLayout.decode(accountInfo.data);
+      const renounced =
+        !this.config.checkRenounced || deserialize.mintAuthorityOption === 0;
+      const freezable =
+        !this.config.checkFreezable || deserialize.freezeAuthorityOption !== 0;
+
+      const ok = renounced && !freezable;
+
+      return ok;
+    } catch (e) {}
+
+    return false;
   }
 
   public async buyAndSellWithBundle(

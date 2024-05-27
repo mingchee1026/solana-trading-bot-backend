@@ -13,6 +13,7 @@ import {
   // MAINNET_PROGRAM_ID,
   Token,
   TokenAmount,
+  LiquidityPoolKeysV4,
 } from '@raydium-io/raydium-sdk';
 import {
   AccountLayout,
@@ -25,6 +26,7 @@ import { TradingBot, SnipingBot, BotConfig } from 'src/libs/bot';
 import { AlgorithmDEMA } from 'src/libs/bot/AlgorithmDEMA';
 import { getToken, getWallet } from 'src/libs/bot';
 import { StartTokenTradingDto, StartPoolSnipingDto } from 'src/app.dto';
+import { getMinimalMarketV3, createPoolKeys } from 'src/libs/helpers';
 
 export enum TransactionMode {
   'BUNDLE',
@@ -58,7 +60,8 @@ export type TradingState = {
 export type SnipingState = {
   poolId: string;
   tokenAddress: string;
-  poolSize: number;
+  poolSize: string;
+  isLocked: string;
   buying?: {
     amount: number;
   };
@@ -459,7 +462,7 @@ export class SseService {
     const botConfig: BotConfig = {
       wallet: this.wallet,
       checkRenounced: startPoolSnipingDto.checkLocked,
-      checkFreezable: false,
+      checkFreezable: startPoolSnipingDto.checkLocked,
       checkBurned: false,
       minPoolSizeAmount: quoteMinPoolSizeAmount,
       maxPoolSizeAmount: quoteMaxPoolSizeAmount,
@@ -503,58 +506,74 @@ export class SseService {
   private subscribeToRaydiumPoolsForSniping = async (
     updatedAccountInfo: KeyedAccountInfo,
   ) => {
-    const key = updatedAccountInfo.accountId.toString();
-    const poolState = LIQUIDITY_STATE_LAYOUT_V4.decode(
-      updatedAccountInfo.accountInfo.data,
-    );
-    const poolOpenTime = parseInt(poolState.poolOpenTime.toString());
-    const existing = await this.poolCache.get(poolState.baseMint.toString());
-    if (poolOpenTime > this.sniperRunTimestamp && !existing) {
-      this.poolCache.save(key, poolState);
-      const poolSize = new TokenAmount(
-        this.quoteToken,
-        poolState.swapQuoteInAmount,
-        true,
+    try {
+      const key = updatedAccountInfo.accountId.toString();
+      const poolState = LIQUIDITY_STATE_LAYOUT_V4.decode(
+        updatedAccountInfo.accountInfo.data,
       );
+      const poolOpenTime = parseInt(poolState.poolOpenTime.toString());
+      const existing = await this.poolCache.get(poolState.baseMint.toString());
+      if (poolOpenTime > this.sniperRunTimestamp && !existing) {
+        this.poolCache.save(key, poolState);
 
-      const baseDecimal = Number(poolState.baseDecimal);
+        const market = await getMinimalMarketV3(
+          this.connection,
+          new PublicKey(poolState.marketId.toString()),
+          this.connection.commitment,
+        );
 
-      console.log(
-        'Pool Size:',
-        Number(poolState.swapQuoteInAmount) / 10 ** baseDecimal,
-      );
+        const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(
+          updatedAccountInfo.accountId,
+          poolState,
+          market,
+        );
 
-      const availableBuy = await this.snipingBot.shouldBuy(
-        poolSize,
-        poolState.baseMint,
-      );
+        const response = await this.connection.getTokenAccountBalance(
+          poolKeys.quoteVault,
+          this.connection.commitment,
+        );
 
-      if (availableBuy) {
+        const poolSize = new TokenAmount(
+          this.quoteToken,
+          response.value.amount,
+          true,
+        );
+
+        console.log('Pool Size of sse.service:', poolSize.toFixed());
+
+        const availableSize = await this.snipingBot.checkPoolSize(poolSize);
+
+        const isLocked = await this.snipingBot.checkLocked(poolKeys.baseMint);
+        console.log(poolState.baseMint.toBase58(), isLocked);
+        if (availableSize && isLocked) {
+          const activity = {
+            poolId: key,
+            tokenAddress: poolState.baseMint.toBase58(),
+            isLocked: isLocked ? 'Locked' : 'Unlocked',
+            poolSize: poolSize.toFixed(),
+            buying: {
+              amount: 0,
+            },
+          };
+
+          this.snipingCache.save(new Date().getTime(), activity);
+
+          // if (this.snipingBot) {
+          //   this.snipingBot.buyWithCommon(key, poolState.baseMint.toBase58());
+          // }
+
+          return;
+        }
+
         const activity = {
           poolId: key,
           tokenAddress: poolState.baseMint.toBase58(),
-          poolSize: Number(poolState.swapQuoteInAmount) / 10 ** baseDecimal,
-          buying: {
-            amount: 0,
-          },
+          isLocked: isLocked ? 'Locked' : 'Unlocked',
+          poolSize: poolSize.toFixed(),
         };
-
         this.snipingCache.save(new Date().getTime(), activity);
-
-        if (this.snipingBot) {
-          this.snipingBot.buyWithCommon(key, poolState.baseMint.toBase58());
-        }
-
-        return;
       }
-
-      const activity = {
-        poolId: key,
-        tokenAddress: poolState.baseMint.toBase58(),
-        poolSize: Number(poolState.swapQuoteInAmount) / 10 ** baseDecimal,
-      };
-      this.snipingCache.save(new Date().getTime(), activity);
-    }
+    } catch (error) {}
   };
 
   /***************************************************************************** */
