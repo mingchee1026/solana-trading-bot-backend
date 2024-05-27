@@ -166,7 +166,7 @@
     order: [[0, 'desc']],
   });
 
-  const serverAddress = 'https://solbot-mbull.duckdns.org';
+  const serverAddress = 'http://localhost:8000'; //'https://solbot-mbull.duckdns.org';
   let eventSource;
 
   startEventSource();
@@ -327,8 +327,6 @@
     $.getJSON(`${serverAddress}/stopTokenTrading`, function(response) {
       console.log(response);
     });
-
-    eventSource && eventSource.close();
   });
 
   $("#startSniping").on("click", function() {
@@ -415,8 +413,6 @@
     $.getJSON(`${serverAddress}/stopPoolSniping`, function(response) {
       console.log(response);
     });
-
-    eventSource && eventSource.close();
   });
 
   $("#testBundle").on("click", function() {
