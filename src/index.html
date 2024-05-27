@@ -21,8 +21,17 @@
       Buy Slipage: <input type="text" size="3" name="buySlipage" id="buySlipage" value="50"> % &nbsp;&nbsp;
       Sell Slipage: <input type="text" size="3" name="sellSlipage" id="sellSlipage" value="50"> % &nbsp;&nbsp;&nbsp;
       Buy Amount: <input type="text" size="8" name="buyAmount" id="buyAmount" value="0.01"> SOL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-      <button id="startMonitor">Start trading</button>
-      <button id="stopMonitor">Stop trading</button>
+      <button id="startTrading">Start Token Trading</button>
+      <button id="stopTrading">Stop Token Trading</button>
+      <!-- <button id="testBundle">Test Buy</button> -->
+    </div>
+    <div style="text-align: center; height: 10px;"></div>
+    <div style="text-align: center; height: 30px;">
+      Min Pool Size: <input type="text" size="3" name="minPoolSizeAmount" id="minPoolSizeAmount" value="3"> SOL &nbsp;&nbsp;
+      Max Pool Size: <input type="text" size="3" name="maxPoolSizeAmount" id="maxPoolSizeAmount" value="8"> SOL &nbsp;&nbsp;&nbsp;
+      <input type="checkbox" size="8" name="checkLocked" id="checkLocked"> Check Locked &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      <button id="startSniping">Start Pool Sniping</button>
+      <button id="stopSniping">Stop Pool Sniping</button>
       <!-- <button id="testBundle">Test Buy</button> -->
     </div>
     <!-- <div style="text-align: center; height: 30px;">
@@ -31,7 +40,7 @@
     </div> -->
     <div id="price-timeline"></div>
     <div>
-      <table id="example" class="display" style="width:100%">
+      <table id="tradingTable" class="display" style="width:100%">
         <thead>
             <tr>
                 <th>DATE</th>
@@ -40,7 +49,21 @@
                 <th>SOL</th>
                 <th>PRICE SOL</th>
                 <th>PRICE USD</th>
-                <th>Bundle</th>
+                <th>TRADING</th>
+            </tr>
+        </thead>
+      </table>
+    </div>
+
+    <div>
+      <table id="snipingTable" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th>DATE</th>
+                <th>POOL</th>
+                <th>TOKEN</th>
+                <th>POOL SIZE</th>
+                <th>SNIPING</th>
             </tr>
         </thead>
       </table>
@@ -131,14 +154,77 @@
   const chart = new ApexCharts(document.querySelector("#price-timeline"), options);
   chart.render();
 
-  const txsTable = new DataTable('#example', {
+  const tradingTable = new DataTable('#tradingTable', {
+    lengthMenu: [5, 10, 25, 50, 75, 100],
     columnDefs: [{ orderable: false, targets: [1, 2, 3, 4, 5, 6] }],
+    order: [[0, 'desc']],
+  });
+
+  const snipingTable = new DataTable('#snipingTable', {
+    lengthMenu: [5, 10, 25, 50, 75, 100],
+    columnDefs: [{ orderable: false, targets: [1, 2, 3, 4] }],
     order: [[0, 'desc']],
   });
 
   const serverAddress = 'https://solbot-mbull.duckdns.org';
   let eventSource;
-  $("#startMonitor").on("click", function() {
+
+  startEventSource();
+
+  function startEventSource() {
+    eventSource && eventSource.close();
+
+    eventSource = new EventSource(`${serverAddress}/sse/substxs`);
+    
+    eventSource.onmessage = ({ data }) => {
+      const activities = JSON.parse(data);
+      const tradingActivities = JSON.parse(activities.tradingData);
+      const snipingActivities = JSON.parse(activities.snipingData);
+
+      for(const activity of tradingActivities) {
+        priceData.push([activity.id, activity.state.tokenPriceSOL]);
+
+        let tradingInfo = "";
+        if (activity.state.trading) {
+          tradingInfo = activity.state.trading.type === 0 ? "Trading BUY" : `Trading SELL, Profit: ${activity.state.trading.profit}`
+        }
+
+        tradingTable.row.add([
+          new Date(activity.id).toISOString(), 
+          activity.state.transactionType === 0 ? "BUY" : "SELL", 
+          activity.state.transactionBaseAmount, 
+          toPlainString(activity.state.transactionQuoteAmount), 
+          activity.state.tokenPriceSOL.toFixed(14), 
+          activity.state.tokenPriceUSB.toFixed(14),
+          activity.state.bundle ? `DIFF: ${toPlainString(activity.state.bundle.diff)}<br>BUY SLIPPAGE: ${activity.state.bundle.buySlippage}%<br>SELL SLIPPAGE: ${activity.state.bundle.sellSlippage}%` : 
+          activity.state.trading ? tradingInfo : "",
+        ]).draw(false);
+      }
+      
+      ApexCharts.exec('price-datetime', 'updateSeries', [{
+        data: priceData
+      }], true);
+
+      for(const activity of snipingActivities) {
+        priceData.push([activity.id, activity.state.tokenPriceSOL]);
+
+        let tradingInfo = "";
+        if (activity.state.trading) {
+          tradingInfo = activity.state.trading.type === 0 ? "Trading: BUY" : `Trading: SELL, Profit: ${activity.state.trading.profit}`
+        }
+
+        snipingTable.row.add([
+          new Date(activity.id).toISOString(), 
+          activity.state.poolId, 
+          activity.state.tokenAddress, 
+          activity.state.poolSize, 
+          activity.state.buying ? 'BUY' : "",
+        ]).draw(false);
+      }
+    }
+  }
+
+  $("#startTrading").on("click", function() {
     const privateKey = $("#privateKey").val();
     if(privateKey === '') {
       alert("Please enter private key!");
@@ -179,7 +265,7 @@
     }
 
     $.ajax({
-      url: `${serverAddress}/startMonitoring`,
+      url: `${serverAddress}/startTokenTrading`,
       type: "POST",
       data: {
         privateKey,
@@ -193,18 +279,17 @@
       },
       error: function() {}
     });
-
+/*
     eventSource && eventSource.close();
 
     eventSource = new EventSource(`${serverAddress}/sse/substxs`);
     
     eventSource.onmessage = ({ data }) => {
       const activities = JSON.parse(data);
-      if(activities.length === 0) {
-        return;
-      }
+      const tradingActivities = JSON.parse(activities.tradingData);
+      const snipingActivities = JSON.parse(activities.snipingData);
 
-      for(const activity of activities) {
+      for(const activity of tradingActivities) {
         priceData.push([activity.id, activity.state.tokenPriceSOL]);
 
         let tradingInfo = "";
@@ -212,7 +297,7 @@
           tradingInfo = activity.state.trading.type === 0 ? "Trading BUY" : `Trading SELL, Profit: ${activity.state.trading.profit}`
         }
 
-        txsTable.row.add([
+        tradingTable.row.add([
           new Date(activity.id).toISOString(), 
           activity.state.transactionType === 0 ? "BUY" : "SELL", 
           activity.state.transactionBaseAmount, 
@@ -227,25 +312,117 @@
       ApexCharts.exec('price-datetime', 'updateSeries', [{
         data: priceData
       }], true);
+
+      for(const activity of snipingActivities) {
+        priceData.push([activity.id, activity.state.tokenPriceSOL]);
+
+        let tradingInfo = "";
+        if (activity.state.trading) {
+          tradingInfo = activity.state.trading.type === 0 ? "Trading: BUY" : `Trading: SELL, Profit: ${activity.state.trading.profit}`
+        }
+
+        snipingTable.row.add([
+          new Date(activity.id).toISOString(), 
+          activity.state.poolId, 
+          activity.state.tokenAddress, 
+          activity.state.poolSize, 
+          activity.state.buying ? 'BUY' : "",
+        ]).draw(false);
+      }
     }
+*/    
   });
 
-  $("#stopMonitor").on("click", function() {
-    $.getJSON(`${serverAddress}/stopMonitoring`, function(response) {
+  $("#stopTrading").on("click", function() {
+    $.getJSON(`${serverAddress}/stopTokenTrading`, function(response) {
       console.log(response);
     });
 
     eventSource && eventSource.close();
   });
 
-  $("#startTrading").on("click", function() {
-    $.getJSON(`${serverAddress}/startTrading`, function(response) {
-      console.log(response);
+  $("#startSniping").on("click", function() {
+    const privateKey = $("#privateKey").val();
+    if(privateKey === '') {
+      alert("Please enter private key!");
+      return;
+    }
+
+    let minPoolSizeAmount = 0;
+    try {
+      minPoolSizeAmount = parseInt($("#minPoolSizeAmount").val())
+    }
+    catch(e) {
+      alert("Please enter min pool size!");
+      return;
+    }
+
+    let maxPoolSizeAmount = 0;
+    try {
+      maxPoolSizeAmount = parseInt($("#maxPoolSizeAmount").val())
+    }
+    catch(e) {
+      alert("Please enter max pool size!");
+      return;
+    }
+
+    let checkLocked = 0;
+    try {
+      checkLocked = $("#checkLocked").is(':checked');
+    }
+    catch(e) {
+      alert("Please enter the correct amount to buy!");
+      return;
+    }
+
+    let buySlipage = 0;
+    try {
+      buySlipage = parseInt($("#buySlipage").val())
+    }
+    catch(e) {
+      alert("Please enter correct buy slipage!");
+      return;
+    }
+
+    let sellSlipage = 0;
+    try {
+      sellSlipage = parseInt($("#sellSlipage").val())
+    }
+    catch(e) {
+      alert("Please enter correct sell slipage!");
+      return;
+    }
+
+    let buyAmount = 0;
+    try {
+      buyAmount = parseFloat($("#buyAmount").val())
+    }
+    catch(e) {
+      alert("Please enter the correct amount to buy!");
+      return;
+    }
+
+    $.ajax({
+      url: `${serverAddress}/startPoolSniping`,
+      type: "POST",
+      data: {
+        privateKey,
+        minPoolSizeAmount,
+        maxPoolSizeAmount,
+        checkLocked,
+        buySlipage,
+        sellSlipage,
+        buyAmount,
+      },
+      success: function(response) {
+        console.log(response);
+      },
+      error: function() {}
     });
   });
 
-  $("#stopTrading").on("click", function() {
-    $.getJSON(`${serverAddress}/stopTrading`, function(response) {
+  $("#stopSniping").on("click", function() {
+    $.getJSON(`${serverAddress}/stopPoolSniping`, function(response) {
       console.log(response);
     });
 
