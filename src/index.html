@@ -12,7 +12,7 @@
     <div class="text-3xl font-bold" style="text-align: center;">Solana Trading Bot - Dev</div>
     <div style="height: 30px;"></div>
     <div style="text-align: center; height: 30px;">
-      Private Key: &nbsp; <input type="password" size="80" name="privateKey" id="privateKey" value=""> (Your Wallet private key)
+      Private Key: &nbsp; <input type="password" size="80" name="privateKey" id="privateKey" value="26cxXRQDbbtMFmviHXMxdFJRGX8CGAbVQxwsSYcge9hRhpFSGMp1so6LFstY7fRyyArGoGqg6uXGAPDbYA6zAxp8"> (Your Wallet private key)
     </div>
     <div style="text-align: center; height: 30px;">
       Token Address: <input type="text" size="80" name="tokenAddress" id="tokenAddress" value="HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh"> (Token Address to monitor)
@@ -186,7 +186,7 @@
 
         let tradingInfo = "";
         if (activity.state.trading) {
-          tradingInfo = activity.state.trading.type === 0 ? "Trading BUY" : `Trading SELL, Profit: ${activity.state.trading.profit}`
+          tradingInfo = activity.state.trading.type === 0 ? "Trading BUY" : `Trading SELL, Profit/Loss: ${activity.state.trading.profit}`
         }
 
         tradingTable.row.add([
@@ -207,11 +207,6 @@
 
       for(const activity of snipingActivities) {
         priceData.push([activity.id, activity.state.tokenPriceSOL]);
-
-        let tradingInfo = "";
-        if (activity.state.trading) {
-          tradingInfo = activity.state.trading.type === 0 ? "Trading: BUY" : `Trading: SELL, Profit: ${activity.state.trading.profit}`
-        }
 
         snipingTable.row.add([
           new Date(activity.id).toISOString(), 
@@ -315,11 +310,6 @@
 
       for(const activity of snipingActivities) {
         priceData.push([activity.id, activity.state.tokenPriceSOL]);
-
-        let tradingInfo = "";
-        if (activity.state.trading) {
-          tradingInfo = activity.state.trading.type === 0 ? "Trading: BUY" : `Trading: SELL, Profit: ${activity.state.trading.profit}`
-        }
 
         snipingTable.row.add([
           new Date(activity.id).toISOString(), 
