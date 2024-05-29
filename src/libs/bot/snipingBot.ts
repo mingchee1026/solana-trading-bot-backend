@@ -137,23 +137,22 @@ export class SnipingBot {
           });
 
         console.log({ ataAccountInfo });
+
         if (!ataAccountInfo) {
           throw 'failed to fetch atas info';
         }
 
         const DEVIDER = 10 ** mintInfo.decimals;
-        // const rawBalance = ataAccountInfo ? Number(AccountLayout.decode(ataAccountInfo.data).amount.toString()) : 0;
-        const rawBalance =
-          Number(this.config.quoteAmount.raw) /
-          (0.0000000958 * LAMPORTS_PER_SOL);
-        tokenAmount = rawBalance / DEVIDER;
-        rawTokenAmount = rawBalance;
+        const rawBalance = ataAccountInfo
+          ? Number(AccountLayout.decode(ataAccountInfo.data).amount.toString())
+          : 0;
+
         console.log(mintInfo.decimals, rawBalance / DEVIDER, rawTokenAmount);
 
         console.log(AccountLayout.decode(ataAccountInfo.data));
 
-        // tokenAmount = rawBalance / DEVIDER;
-        // rawTokenAmount = rawBalance;
+        tokenAmount = rawBalance / DEVIDER;
+        rawTokenAmount = rawBalance;
         // console.log(mintInfo.decimals, tokenAmount, rawBalance);
 
         runSellTx = true;
@@ -183,6 +182,8 @@ export class SnipingBot {
         // swapUnitPrice: this.config.unitPrice,
         // swapUnitLimit: this.config.unitLimit,
       };
+
+      console.log(JSON.stringify(volumeData, null, 4));
 
       const _versionedTxs = [];
 
@@ -280,7 +281,10 @@ export class SnipingBot {
         });
 
         const sellTxMsg = new TransactionMessage({
-          instructions: [incTxFeeIx, ...sellInfoRes?.ixs],
+          instructions: [
+            ...(txType === 'COMMON' ? [incTxFeeIx] : []),
+            ...sellInfoRes?.ixs,
+          ],
           payerKey: this.config.wallet.publicKey,
           recentBlockhash: sellRecentBlockhash.blockhash,
         }).compileToV0Message([]);
@@ -323,18 +327,13 @@ export class SnipingBot {
       // console.log({ bundleRes }, `Swap results:`);
 
       if (!bundleRes || !bundleRes.Ok) {
-        console.log(`Swap failed:`);
+        console.log(`Swap failed: ${bundleRes?.Err || ''}`);
         return;
       }
 
-      const { bundleId, txsSignature } = bundleRes.Ok;
+      const { bundleId } = bundleRes.Ok;
 
-      if (txType === 'COMMON') {
-        console.log(`Check buy:  'https://solscan.io/tx/${txsSignature![0]}'`);
-        console.log(`Check sell: 'https://solscan.io/tx/${txsSignature![1]}'`);
-      } else {
-        console.log(`Check 'https://explorer.jito.wtf/bundle/${bundleId}'`);
-      }
+      console.log(`Check 'https://explorer.jito.wtf/bundle/${bundleId}'`);
     } catch (error) {
       console.log(error);
       console.log(`buy and sell: ${error}`);

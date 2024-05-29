@@ -164,14 +164,6 @@ export class SseService {
         this.wallet.publicKey,
       );
 
-      // const baseAta = getAssociatedTokenAddressSync(
-      //   new PublicKey(this.baseToken),
-      //   this.wallet.publicKey,
-      // );
-
-      // console.log(quoteToken.mint.toBase58(), this.quoteAta);
-      // console.log(this.baseToken, baseAta);
-
       const botConfig: BotConfig = {
         wallet: this.wallet,
         checkRenounced: false,
@@ -383,21 +375,14 @@ export class SseService {
           };
 
           currActivity.bundle = bundle;
-          // console.log(JSON.stringify(currActivity, null, 4));
 
           this.tradingCache.save(new Date().getTime(), currActivity);
 
           if (this.tradingBot && this.tradingPoolId !== '' && this.baseToken) {
-            // await this.tradingBot.buyAndSellWithCommon(this.poolId, this.baseToken);
-            await this.tradingBot.buyWithCommon(
+            await this.tradingBot.buyAndSellWithBundle(
               this.tradingPoolId,
               this.baseToken,
             );
-
-            // await this.tradingBot.sellWithCommon(
-            //   this.tradingPoolId,
-            //   this.baseToken,
-            // );
           }
 
           return;
@@ -641,24 +626,28 @@ export class SseService {
 
   async testBuyAndSell() {
     // Token Trading test
-    await this.tradingBot.buyWithCommon(
-      '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
-      'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
-    );
-    await this.tradingBot.sellWithCommon(
-      '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
-      'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
-    );
-    // await this.tradingBot.buyAndSellWithBundle(
+    // await this.tradingBot.buyWithCommon(
     //   '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
     //   'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
-    //   'COMMON',
     // );
+    // await this.tradingBot.sellWithCommon(
+    //   '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
+    //   'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
+    // );
+    await this.tradingBot.buyAndSellWithBundle(
+      '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
+      'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
+    );
 
     // Pool Sniping test
     // await this.snipingBot.buyWithCommon(
     //   '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
     //   'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
+    // );
+    // await this.snipingBot.buyAndSellWithBundle(
+    //   '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
+    //   'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
+    //   'BUNDLE',
     // );
   }
 

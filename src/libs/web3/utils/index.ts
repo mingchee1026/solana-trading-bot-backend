@@ -405,15 +405,12 @@ export async function sendBundle(
   txs: VersionedTransaction[],
   connection: Connection,
   jitoBlockEngineUrl: string,
-): Promise<
-  Result<
-    { bundleId: string; txsSignature: string[]; bundleStatus: number },
-    string
-  >
-> {
+): Promise<Result<{ bundleId: string }, string>> {
   try {
     const result = await processBundle(txs, jitoBlockEngineUrl);
-    if (!result) {
+    return result;
+
+    /*    if (!result) {
       return { Err: 'Failed to send bunlde.' };
     }
 
@@ -421,6 +418,8 @@ export async function sendBundle(
       return { Err: result.Err };
     }
 
+    return {Ok: }
+    
     debug('Bundle Processing Results:', result);
 
     const bundleRes: Result<{ bundleId: string }, string> | undefined = result;
@@ -432,6 +431,14 @@ export async function sendBundle(
 
     if (bundleRes?.Ok) {
       debug('Bundle processing Okay!');
+
+      const ret = {
+        Ok: {
+          bundleId,
+          bundleStatus: status,
+          txsSignature: transactions,
+        },
+      };
 
       await sleep(2_000);
 
@@ -508,6 +515,7 @@ export async function sendBundle(
     debug(`Return sendBundle function(with pool ID account info): ${ret}`);
 
     return ret;
+*/
   } catch (error) {
     debug({ innerBundleError: error });
   }
@@ -615,6 +623,7 @@ export default async function processBundle(
           }
 
           debug('----- bundle rejected -----');
+          debug(`Error: ${rejectMsg}`);
 
           throw `Bundle rejected: ${rejectMsg}`;
         }

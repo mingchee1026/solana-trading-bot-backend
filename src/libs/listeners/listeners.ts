@@ -39,10 +39,10 @@ export class Listeners extends EventEmitter {
       await this.subscribeToRaydiumPoolsForTrading(config);
     this.subscriptionsForTrading.push(raydiumTokenSubscription);
 
-    // if (config.autoSell) {
-    const walletSubscription = await this.subscribeToWalletChanges(config);
-    this.subscriptionsForTrading.push(walletSubscription);
-    // }
+    if (config.autoSell) {
+      const walletSubscription = await this.subscribeToWalletChanges(config);
+      this.subscriptionsForTrading.push(walletSubscription);
+    }
 
     // const logSubsciption = await this.subscribeToTransactionLogs(config);
     // this.subscriptions.push(logSubsciption);

@@ -60,11 +60,47 @@ export class TradingBot {
     readonly config: BotConfig,
   ) {}
 
-  public async buyAndSellWithBundle(
-    poolId: string,
-    tokenAddress: string,
-    txType: 'BUNDLE' | 'COMMON',
-  ) {
+  public async preBuyWithCommon(poolId: string, tokenAddress: string) {
+    const mint = getPubkeyFromStr(tokenAddress);
+    if (!mint) {
+      console.log('FAILED TO FETCH THE MINT INFO');
+      return;
+    }
+
+    try {
+      const mintInfo = await getMint(this.connection, mint).catch(() => null);
+      if (!mintInfo) {
+        throw 'TOKEN INFO NOT FOUND';
+      }
+
+      const mintAta = getAssociatedTokenAddressSync(
+        mint,
+        this.config.wallet.publicKey,
+      );
+      const ataAccountInfo = await this.connection
+        .getAccountInfo(mintAta)
+        .catch(async () => {
+          await this.sleep(1000);
+          return this.connection.getAccountInfo(mintAta).catch(() => null);
+        });
+
+      if (!ataAccountInfo) {
+        throw 'failed to fetch atas info';
+      }
+
+      const rawBalance = ataAccountInfo
+        ? Number(AccountLayout.decode(ataAccountInfo.data).amount.toString())
+        : 0;
+
+      if (rawBalance === 0) {
+        await this.buyWithCommon(poolId, tokenAddress);
+      }
+    } catch (getBalanceError) {
+      console.log({ getBalanceError }, 'Fetching token balance');
+    }
+  }
+
+  public async buyAndSellWithBundle(poolId: string, tokenAddress: string) {
     try {
       const accountInfo = await this.connection
         .getAccountInfo(this.config.wallet.publicKey)
@@ -89,7 +125,6 @@ export class TradingBot {
         return;
       }
 
-      let runSellTx = false;
       let tokenAmount = 0;
       let rawTokenAmount = 0;
       try {
@@ -109,7 +144,7 @@ export class TradingBot {
             return this.connection.getAccountInfo(mintAta).catch(() => null);
           });
 
-        console.log({ ataAccountInfo });
+        // console.log({ ataAccountInfo });
 
         if (!ataAccountInfo) {
           throw 'failed to fetch atas info';
@@ -120,13 +155,16 @@ export class TradingBot {
           ? Number(AccountLayout.decode(ataAccountInfo.data).amount.toString())
           : 0;
 
+        if (!rawBalance || rawBalance === 0) {
+          await this.buyWithCommon(poolId, tokenAddress);
+          return;
+        }
+
         tokenAmount = rawBalance / DEVIDER;
         rawTokenAmount = rawBalance;
-
-        runSellTx = true;
       } catch (getBalanceError) {
         console.log({ getBalanceError }, 'Fetching token balance');
-        // return;
+        return;
       }
 
       const volumeData: VolumeData = {
@@ -179,29 +217,8 @@ export class TradingBot {
           return;
         }
 
-        const priorityFeeInfo = getPriorityFee();
-        const txFee = (priorityFeeInfo as any)['medium'];
-        const incTxFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
-          microLamports: txFee,
-        });
-
-        const jitoFee = new CurrencyAmount(
-          Currency.SOL,
-          this.config.jitoCustomFee,
-          false,
-        ).raw.toNumber();
-
-        const jitoTipTx = SystemProgram.transfer({
-          fromPubkey: this.config.wallet.publicKey,
-          toPubkey: JITO_TIPS_ACCOUNTS[3],
-          lamports: jitoFee, // ENV.BUNDLE_FEE,
-        });
-
         const buyTxMsg = new TransactionMessage({
-          instructions: [
-            ...buyInfoRes?.ixs,
-            ...(txType === 'COMMON' ? [incTxFeeIx] : []),
-          ],
+          instructions: [...buyInfoRes?.ixs],
           payerKey: this.config.wallet.publicKey,
           recentBlockhash: buyRecentBlockhash.blockhash,
         }).compileToV0Message([]);
@@ -214,7 +231,7 @@ export class TradingBot {
         _versionedTxs.push(_buyTx);
       }
 
-      if (runSellTx) {
+      {
         // create sell tx
         console.log('Creating sell tx');
 
@@ -241,12 +258,6 @@ export class TradingBot {
           return;
         }
 
-        const priorityFeeInfo = getPriorityFee();
-        const txFee = (priorityFeeInfo as any)['medium'];
-        const incTxFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
-          microLamports: txFee,
-        });
-
         const jitoFee = new CurrencyAmount(
           Currency.SOL,
           this.config.jitoCustomFee,
@@ -260,10 +271,7 @@ export class TradingBot {
         });
 
         const sellTxMsg = new TransactionMessage({
-          instructions: [
-            ...sellInfoRes?.ixs,
-            ...(txType === 'COMMON' ? [incTxFeeIx] : [jitoTipTx]),
-          ],
+          instructions: [...sellInfoRes?.ixs, ...[jitoTipTx]],
           payerKey: this.config.wallet.publicKey,
           recentBlockhash: sellRecentBlockhash.blockhash,
         }).compileToV0Message([]);
@@ -273,34 +281,14 @@ export class TradingBot {
         _versionedTxs.push(_sellTx);
       }
 
-      let bundleRes: Result<
-        {
-          bundleId: string;
-          txsSignature?: string[];
-          bundleStatus?: number;
-        },
-        string
-      > | null = null;
-
-      if (txType === 'BUNDLE') {
-        // Jito bundle
-        bundleRes = await sendBundle(
-          _versionedTxs,
-          this.connection,
-          'tokyo.mainnet.block-engine.jito.wtf',
-        ).catch((sendBundleError) => {
-          console.log({ sendBundleError }, 'Bundle error:');
-          return null;
-        });
-      } else {
-        // Common transaction
-        bundleRes = await sendBundleTest(_versionedTxs, this.connection).catch(
-          (sendBundleError) => {
-            console.log({ sendBundleError }, 'Bundle error:');
-            return null;
-          },
-        );
-      }
+      const bundleRes = await sendBundle(
+        _versionedTxs,
+        this.connection,
+        'tokyo.mainnet.block-engine.jito.wtf',
+      ).catch((sendBundleError) => {
+        console.log({ sendBundleError }, 'Bundle error:');
+        return null;
+      });
 
       // console.log({ bundleRes }, `Swap results:`);
 
@@ -309,14 +297,9 @@ export class TradingBot {
         return;
       }
 
-      const { bundleId, txsSignature } = bundleRes.Ok;
+      const { bundleId } = bundleRes.Ok;
 
-      if (txType === 'COMMON') {
-        console.log(`Check buy:  'https://solscan.io/tx/${txsSignature![0]}'`);
-        console.log(`Check sell: 'https://solscan.io/tx/${txsSignature![1]}'`);
-      } else {
-        console.log(`Check 'https://explorer.jito.wtf/bundle/${bundleId}'`);
-      }
+      console.log(`Check 'https://explorer.jito.wtf/bundle/${bundleId}'`);
 
       return bundleId;
     } catch (error) {
