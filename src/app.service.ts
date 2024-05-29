@@ -7,8 +7,9 @@ export class AppService {
   constructor(private readonly sseService: SseService) {}
 
   async startTokenTrading(startTradingDto: StartTokenTradingDto) {
-    await this.sseService.startSubscriptionForTokenTrading(startTradingDto);
-    return 'started';
+    const res =
+      await this.sseService.startSubscriptionForTokenTrading(startTradingDto);
+    return res;
   }
 
   async stopTokenTrading() {
@@ -16,8 +17,11 @@ export class AppService {
   }
 
   async startPoolSniping(startPoolSnipingDto: StartPoolSnipingDto) {
-    await this.sseService.startSubscriptionForPoolSniping(startPoolSnipingDto);
-    return 'started';
+    const res =
+      await this.sseService.startSubscriptionForPoolSniping(
+        startPoolSnipingDto,
+      );
+    return res;
   }
 
   async stopPoolSniping() {

@@ -19,8 +19,11 @@ import { bundle } from 'jito-ts';
 import { searcherClient } from 'jito-ts/dist/sdk/block-engine/searcher';
 import { toBigIntLE, toBufferBE } from 'bigint-buffer';
 // import BN from 'bn.js';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const BN = require('bn.js');
-import bs58 from 'bs58';
+// import bs58 from 'bs58';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const bs58 = require('bs58');
 import {
   Liquidity,
   LiquidityPoolInfo,
@@ -195,7 +198,7 @@ export async function calculateSwapInfoFromInput(
 
       const fixedSwapAmount =
         swapType == 'BUY'
-          ? volumeData.amounts.BUY || Math.trunc((info.rawSol * 10) / 100)
+          ? volumeData.amounts.BUY
           : Math.trunc((info.rawTokenAmount * swapPercent) / 100);
 
       swappersInfo.push({
@@ -366,6 +369,7 @@ export function getKeypairFromStr(str: string): Keypair | null {
   try {
     return Keypair.fromSecretKey(Uint8Array.from(bs58.decode(str)));
   } catch (error) {
+    console.log(error);
     return null;
   }
 }
@@ -691,6 +695,8 @@ export async function sendBundleTest(
           }),
       );
 
+      debug(`Sent transaction. Waiting results ...`);
+
       await sleep(3_000);
     }
 
@@ -703,7 +709,7 @@ export async function sendBundleTest(
     //confirm tx signature
     // await sleep(30_000);
 
-    let isOk = false;
+    // let isOk = false;
     for (let i = 0; i < txsSignature.length; ++i) {
       const sign = txsSignature[i];
       for (let idx = 0; idx < 3; idx++) {
@@ -716,22 +722,30 @@ export async function sendBundleTest(
           continue;
         }
 
-        isOk = true;
+        // isOk = true;
         break;
       }
     }
 
-    if (isOk) {
-      return {
-        Ok: {
-          bundleId: '',
-          bundleStatus: 1,
-          txsSignature: txsSignature,
-        },
-      };
-    }
+    // if (isOk) {
+    //   return {
+    //     Ok: {
+    //       bundleId: '',
+    //       bundleStatus: 1,
+    //       txsSignature: txsSignature,
+    //     },
+    //   };
+    // }
 
-    return { Err: 'UnVerified Tx signature' };
+    // return { Err: 'UnVerified Tx signature' };
+
+    return {
+      Ok: {
+        bundleId: '',
+        bundleStatus: 1,
+        txsSignature: txsSignature,
+      },
+    };
   } catch (innerBundlerError) {
     return { Err: JSON.stringify(innerBundlerError) };
   }

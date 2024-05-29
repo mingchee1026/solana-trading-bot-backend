@@ -19,6 +19,11 @@ export class AppController {
   @Post('startTokenTrading')
   async startTokenTrading(@Body() startTokenTradingDto: StartTokenTradingDto) {
     return await this.appService.startTokenTrading(startTokenTradingDto); // FFuAa2tv4VdB8o8fLS1oC7qAt13NXS1hv8hBTbFVP9uT HogxGo1jDwvseBdYNvNBM7UYpsWJPifbH7hM5nCvBWuw
+    // if (res.Ok) {
+    //   response.json({ Ok: true });
+    // } else {
+    //   response.json({ Ok: true });
+    // }
   }
 
   @Get('stopTokenTrading')

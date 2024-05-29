@@ -63,7 +63,7 @@ export type SnipingState = {
   poolSize: string;
   isLocked: string;
   buying?: {
-    amount: number;
+    signature: string;
   };
 };
 
@@ -147,56 +147,68 @@ export class SseService {
   async startSubscriptionForTokenTrading(
     startTokenTradingDto: StartTokenTradingDto,
   ) {
-    if (this.isRunningTokenTrading) {
-      return;
+    try {
+      if (this.isRunningTokenTrading) {
+        return { Ok: true };
+      }
+
+      this.isRunningTokenTrading = true;
+
+      this.wallet = getWallet(startTokenTradingDto.privateKey.trim());
+      // this.wallet = getWallet(this.configService.get('PRIVATE_KEY').trim());
+
+      this.baseToken = startTokenTradingDto.tokenAddress.trim();
+
+      this.quoteAta = getAssociatedTokenAddressSync(
+        this.quoteToken.mint,
+        this.wallet.publicKey,
+      );
+
+      // const baseAta = getAssociatedTokenAddressSync(
+      //   new PublicKey(this.baseToken),
+      //   this.wallet.publicKey,
+      // );
+
+      // console.log(quoteToken.mint.toBase58(), this.quoteAta);
+      // console.log(this.baseToken, baseAta);
+
+      const botConfig: BotConfig = {
+        wallet: this.wallet,
+        checkRenounced: false,
+        checkFreezable: false,
+        checkBurned: false,
+        minPoolSizeAmount: null,
+        maxPoolSizeAmount: null,
+        quoteAmount: new TokenAmount(
+          this.quoteToken,
+          startTokenTradingDto.buyAmount, // this.configService.get('QUOTE_AMOUNT'),
+          false,
+        ),
+        buySlippage: Number(startTokenTradingDto.buySlipage) || 50, // Number(this.configService.get('BUY_SLIPPAGE')),
+        sellSlippage: Number(startTokenTradingDto.sellSlipage) || 50, // Number(this.configService.get('SELL_SLIPPAGE')),
+        jitoCustomFee: 0.001, // Number(startTokenTradingDto.jitoTips), //Number(this.configService.get('CUSTOM_FEE')),
+      };
+
+      this.tradingBot = new TradingBot(this.connection, botConfig);
+
+      this.algoDEMA = new AlgorithmDEMA();
+
+      await this.listeners.startTokenTrading({
+        walletPublicKey: this.wallet.publicKey,
+        baseToken: startTokenTradingDto.tokenAddress.trim(),
+        quoteToken: this.quoteToken,
+      });
+
+      return { Ok: true };
+    } catch (error) {
+      this.isRunningTokenTrading = false;
+
+      return {
+        Err: error.message
+          ? error.message
+          : 'An error occurred during startup. Please check your bot settings.',
+      };
     }
-
-    this.isRunningTokenTrading = true;
-
-    this.wallet = getWallet(startTokenTradingDto.privateKey.trim());
-    // this.wallet = getWallet(this.configService.get('PRIVATE_KEY').trim());
-
-    this.baseToken = startTokenTradingDto.tokenAddress.trim();
-
-    this.quoteAta = getAssociatedTokenAddressSync(
-      this.quoteToken.mint,
-      this.wallet.publicKey,
-    );
-
-    // const baseAta = getAssociatedTokenAddressSync(
-    //   new PublicKey(this.baseToken),
-    //   this.wallet.publicKey,
-    // );
-
-    // console.log(quoteToken.mint.toBase58(), this.quoteAta);
-    // console.log(this.baseToken, baseAta);
-
-    const botConfig: BotConfig = {
-      wallet: this.wallet,
-      checkRenounced: false,
-      checkFreezable: false,
-      checkBurned: false,
-      minPoolSizeAmount: null,
-      maxPoolSizeAmount: null,
-      quoteAmount: new TokenAmount(
-        this.quoteToken,
-        startTokenTradingDto.buyAmount, // this.configService.get('QUOTE_AMOUNT'),
-        false,
-      ),
-      buySlippage: Number(startTokenTradingDto.buySlipage) || 50, // Number(this.configService.get('BUY_SLIPPAGE')),
-      sellSlippage: Number(startTokenTradingDto.sellSlipage) || 50, // Number(this.configService.get('SELL_SLIPPAGE')),
-      jitoCustomFee: Number(this.configService.get('CUSTOM_FEE')),
-    };
-
-    this.tradingBot = new TradingBot(this.connection, botConfig);
-
-    this.algoDEMA = new AlgorithmDEMA();
-
-    await this.listeners.startTokenTrading({
-      walletPublicKey: this.wallet.publicKey,
-      baseToken: startTokenTradingDto.tokenAddress.trim(),
-      quoteToken: this.quoteToken,
-    });
   }
 
   getTradingHistories() {
@@ -312,9 +324,9 @@ export class SseService {
         tokenPriceUSB: tokenPriceUSB,
       };
 
-      // await this.runBundle(activity);
+      await this.runBundle(activity);
 
-      await this.runDEMA(activity);
+      // await this.runDEMA(activity);
 
       // this.printActivity(
       //   'Sell',
@@ -335,9 +347,9 @@ export class SseService {
         tokenPriceUSB: tokenPriceUSB,
       };
 
-      // await this.runBundle(activity);
+      await this.runBundle(activity);
 
-      await this.runDEMA(activity);
+      // await this.runDEMA(activity);
 
       // this.printActivity(
       //   'Buy',
@@ -375,16 +387,17 @@ export class SseService {
 
           this.tradingCache.save(new Date().getTime(), currActivity);
 
-          if (
-            this.isRunningBundle &&
-            this.tradingPoolId !== '' &&
-            this.baseToken
-          ) {
+          if (this.tradingBot && this.tradingPoolId !== '' && this.baseToken) {
             // await this.tradingBot.buyAndSellWithCommon(this.poolId, this.baseToken);
             await this.tradingBot.buyWithCommon(
               this.tradingPoolId,
               this.baseToken,
             );
+
+            // await this.tradingBot.sellWithCommon(
+            //   this.tradingPoolId,
+            //   this.baseToken,
+            // );
           }
 
           return;
@@ -439,51 +452,63 @@ export class SseService {
   async startSubscriptionForPoolSniping(
     startPoolSnipingDto: StartPoolSnipingDto,
   ) {
-    if (this.isRunningPoolSniping) {
-      return;
-    }
+    try {
+      if (this.isRunningPoolSniping) {
+        return { Ok: true };
+      }
 
-    this.isRunningPoolSniping = true;
+      this.isRunningPoolSniping = true;
 
-    this.wallet = getWallet(startPoolSnipingDto.privateKey.trim());
-    // this.wallet = getWallet(this.configService.get('PRIVATE_KEY').trim());
+      this.wallet = getWallet(startPoolSnipingDto.privateKey.trim());
+      // this.wallet = getWallet(this.configService.get('PRIVATE_KEY').trim());
 
-    const quoteMinPoolSizeAmount = new TokenAmount(
-      this.quoteToken,
-      Number(startPoolSnipingDto.minPoolSizeAmount),
-      false,
-    );
-    const quoteMaxPoolSizeAmount = new TokenAmount(
-      this.quoteToken,
-      Number(startPoolSnipingDto.maxPoolSizeAmount),
-      false,
-    );
-
-    const botConfig: BotConfig = {
-      wallet: this.wallet,
-      checkRenounced: startPoolSnipingDto.checkLocked,
-      checkFreezable: startPoolSnipingDto.checkLocked,
-      checkBurned: false,
-      minPoolSizeAmount: quoteMinPoolSizeAmount,
-      maxPoolSizeAmount: quoteMaxPoolSizeAmount,
-      quoteAmount: new TokenAmount(
+      const quoteMinPoolSizeAmount = new TokenAmount(
         this.quoteToken,
-        startPoolSnipingDto.buyAmount, // this.configService.get('QUOTE_AMOUNT'),
+        Number(startPoolSnipingDto.minPoolSize),
         false,
-      ),
-      buySlippage: Number(startPoolSnipingDto.buySlipage) || 50, // Number(this.configService.get('BUY_SLIPPAGE')),
-      sellSlippage: Number(startPoolSnipingDto.sellSlipage) || 50, // Number(this.configService.get('SELL_SLIPPAGE')),
-      jitoCustomFee: Number(this.configService.get('CUSTOM_FEE')),
-    };
+      );
+      const quoteMaxPoolSizeAmount = new TokenAmount(
+        this.quoteToken,
+        Number(startPoolSnipingDto.maxPoolSize),
+        false,
+      );
 
-    this.snipingBot = new SnipingBot(this.connection, botConfig);
+      const botConfig: BotConfig = {
+        wallet: this.wallet,
+        checkRenounced: startPoolSnipingDto.checkLocked,
+        checkFreezable: startPoolSnipingDto.checkLocked,
+        checkBurned: false,
+        minPoolSizeAmount: quoteMinPoolSizeAmount,
+        maxPoolSizeAmount: quoteMaxPoolSizeAmount,
+        quoteAmount: new TokenAmount(
+          this.quoteToken,
+          startPoolSnipingDto.buyAmount, // this.configService.get('QUOTE_AMOUNT'),
+          false,
+        ),
+        buySlippage: Number(startPoolSnipingDto.buySlipage || 50), // Number(this.configService.get('BUY_SLIPPAGE')),
+        sellSlippage: Number(startPoolSnipingDto.sellSlipage || 50), // Number(this.configService.get('SELL_SLIPPAGE')),
+        jitoCustomFee: Number(this.configService.get('CUSTOM_FEE')),
+      };
 
-    this.sniperRunTimestamp = Math.floor(new Date().getTime() / 1000);
+      this.snipingBot = new SnipingBot(this.connection, botConfig);
 
-    await this.listeners.startPoolSniping({
-      walletPublicKey: this.wallet.publicKey,
-      quoteToken: this.quoteToken,
-    });
+      this.sniperRunTimestamp = Math.floor(new Date().getTime() / 1000);
+
+      await this.listeners.startPoolSniping({
+        walletPublicKey: this.wallet.publicKey,
+        quoteToken: this.quoteToken,
+      });
+
+      return { Ok: true };
+    } catch (error) {
+      this.isRunningPoolSniping = false;
+
+      return {
+        Err: error.message
+          ? error.message
+          : 'An error occurred during startup. Please check your bot settings.',
+      };
+    }
   }
 
   async stopSubscriptionForPoolSniping() {
@@ -546,20 +571,23 @@ export class SseService {
         const isLocked = await this.snipingBot.checkLocked(poolKeys.baseMint);
         console.log(poolState.baseMint.toBase58(), isLocked);
         if (availableSize && isLocked) {
-          const activity = {
-            poolId: key,
-            tokenAddress: poolState.baseMint.toBase58(),
-            isLocked: isLocked ? 'Locked' : 'Unlocked',
-            poolSize: poolSize.toFixed(),
-            buying: {
-              amount: 0,
-            },
-          };
-
-          this.snipingCache.save(new Date().getTime(), activity);
-
           if (this.snipingBot) {
-            this.snipingBot.buyWithCommon(key, poolState.baseMint.toBase58());
+            const txsSignature = await this.snipingBot.buyWithCommon(
+              key,
+              poolState.baseMint.toBase58(),
+            );
+
+            const activity = {
+              poolId: key,
+              tokenAddress: poolState.baseMint.toBase58(),
+              isLocked: isLocked ? 'Locked' : 'Unlocked',
+              poolSize: poolSize.toFixed(),
+              buying: {
+                signature: txsSignature || '',
+              },
+            };
+
+            this.snipingCache.save(new Date().getTime(), activity);
           }
 
           return;
@@ -606,18 +634,29 @@ export class SseService {
       `Sell => Token Address: ${accountData.mint}, Token Balance: ${Number(accountData.amount)}`,
     );
 
-    if (this.isRunningBundle && this.tradingPoolId !== '' && this.baseToken) {
+    if (this.tradingBot && this.tradingPoolId !== '' && this.baseToken) {
       await this.tradingBot.sellWithCommon(this.tradingPoolId, this.baseToken);
     }
   };
 
   async testBuyAndSell() {
-    console.log(this.tradingPoolId, this.baseToken);
-    if (this.tradingPoolId !== '' && this.baseToken) {
-      // await this.tradingBot.buyAndSellWithCommon(this.poolId, this.baseToken);
-      await this.tradingBot.buyWithCommon(this.tradingPoolId, this.baseToken);
-    }
-    // await this.tradingBot.buyWithCommon(
+    // Token Trading test
+    await this.tradingBot.buyWithCommon(
+      '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
+      'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
+    );
+    await this.tradingBot.sellWithCommon(
+      '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
+      'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
+    );
+    // await this.tradingBot.buyAndSellWithBundle(
+    //   '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
+    //   'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
+    //   'COMMON',
+    // );
+
+    // Pool Sniping test
+    // await this.snipingBot.buyWithCommon(
     //   '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
     //   'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
     // );

@@ -4,14 +4,15 @@ export class StartTokenTradingDto {
   buySlipage: number;
   sellSlipage: number;
   buyAmount: number;
+  jitoTips: number;
 }
 
 export class StartPoolSnipingDto {
   privateKey: string;
-  minPoolSizeAmount: number;
-  maxPoolSizeAmount: number;
+  minPoolSize: number;
+  maxPoolSize: number;
   checkLocked: boolean;
-  buySlipage: number;
-  sellSlipage: number;
+  buySlipage?: number;
+  sellSlipage?: number;
   buyAmount: number;
 }

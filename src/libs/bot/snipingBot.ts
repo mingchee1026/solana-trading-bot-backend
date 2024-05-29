@@ -501,7 +501,9 @@ export class SnipingBot {
         console.log('Failed to get volume data for buy.');
         return;
       }
-      console.log('buyVolumeData', buyVolumeData);
+
+      // console.log('buyVolumeData', buyVolumeData);
+
       const buyTxsInfo = await this.getBundleTxsInfo(
         buyVolumeData,
         'BUY',
@@ -530,6 +532,8 @@ export class SnipingBot {
         microLamports: txFee,
       });
 
+      console.log(`Added fee: ${txFee}`);
+
       const buyTxMsg = new TransactionMessage({
         instructions: [incTxFeeIx, ...buyInfoRes?.ixs],
         payerKey: this.config.wallet.publicKey,
@@ -555,12 +559,14 @@ export class SnipingBot {
 
       if (!buyRes || !buyRes.Ok) {
         console.log(`Swap transaction failed(Buy):`);
-        return;
+        return null;
       }
 
       const { txsSignature } = buyRes.Ok;
 
       console.log(`Check buy:  'https://solscan.io/tx/${txsSignature![0]}'`);
+
+      return txsSignature![0];
     } catch (error) {
       console.log(`Buy error: ${error}`);
     }

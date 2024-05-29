@@ -110,24 +110,18 @@ export class TradingBot {
           });
 
         console.log({ ataAccountInfo });
+
         if (!ataAccountInfo) {
           throw 'failed to fetch atas info';
         }
 
         const DEVIDER = 10 ** mintInfo.decimals;
-        // const rawBalance = ataAccountInfo ? Number(AccountLayout.decode(ataAccountInfo.data).amount.toString()) : 0;
-        const rawBalance =
-          Number(this.config.quoteAmount.raw) /
-          (0.0000000958 * LAMPORTS_PER_SOL);
+        const rawBalance = ataAccountInfo
+          ? Number(AccountLayout.decode(ataAccountInfo.data).amount.toString())
+          : 0;
+
         tokenAmount = rawBalance / DEVIDER;
         rawTokenAmount = rawBalance;
-        console.log(mintInfo.decimals, rawBalance / DEVIDER, rawTokenAmount);
-
-        console.log(AccountLayout.decode(ataAccountInfo.data));
-
-        // tokenAmount = rawBalance / DEVIDER;
-        // rawTokenAmount = rawBalance;
-        // console.log(mintInfo.decimals, tokenAmount, rawBalance);
 
         runSellTx = true;
       } catch (getBalanceError) {
@@ -200,14 +194,13 @@ export class TradingBot {
         const jitoTipTx = SystemProgram.transfer({
           fromPubkey: this.config.wallet.publicKey,
           toPubkey: JITO_TIPS_ACCOUNTS[3],
-          lamports: LAMPORTS_PER_SOL * jitoFee, // ENV.BUNDLE_FEE,
+          lamports: jitoFee, // ENV.BUNDLE_FEE,
         });
 
         const buyTxMsg = new TransactionMessage({
-          // instructions: [incTxFeeIx, ...buyInfoRes?.ixs],
           instructions: [
-            ...(txType === 'COMMON' ? [incTxFeeIx] : [jitoTipTx]),
             ...buyInfoRes?.ixs,
+            ...(txType === 'COMMON' ? [incTxFeeIx] : []),
           ],
           payerKey: this.config.wallet.publicKey,
           recentBlockhash: buyRecentBlockhash.blockhash,
@@ -215,6 +208,8 @@ export class TradingBot {
 
         const _buyTx = new VersionedTransaction(buyTxMsg);
         _buyTx.sign([...buyInfoRes.keypairs]);
+
+        console.log(JSON.stringify(buyInfoRes.keypairs[0].publicKey, null, 4));
 
         _versionedTxs.push(_buyTx);
       }
@@ -252,15 +247,29 @@ export class TradingBot {
           microLamports: txFee,
         });
 
+        const jitoFee = new CurrencyAmount(
+          Currency.SOL,
+          this.config.jitoCustomFee,
+          false,
+        ).raw.toNumber();
+
+        const jitoTipTx = SystemProgram.transfer({
+          fromPubkey: this.config.wallet.publicKey,
+          toPubkey: JITO_TIPS_ACCOUNTS[3],
+          lamports: jitoFee, // ENV.BUNDLE_FEE,
+        });
+
         const sellTxMsg = new TransactionMessage({
-          instructions: [incTxFeeIx, ...sellInfoRes?.ixs],
+          instructions: [
+            ...sellInfoRes?.ixs,
+            ...(txType === 'COMMON' ? [incTxFeeIx] : [jitoTipTx]),
+          ],
           payerKey: this.config.wallet.publicKey,
           recentBlockhash: sellRecentBlockhash.blockhash,
         }).compileToV0Message([]);
 
         const _sellTx = new VersionedTransaction(sellTxMsg);
         _sellTx.sign([...sellInfoRes.keypairs]);
-
         _versionedTxs.push(_sellTx);
       }
 
@@ -296,7 +305,7 @@ export class TradingBot {
       // console.log({ bundleRes }, `Swap results:`);
 
       if (!bundleRes || !bundleRes.Ok) {
-        console.log(`Swap failed:`);
+        console.log(`Swap failed: ${bundleRes.Err || ''}`);
         return;
       }
 
@@ -308,6 +317,8 @@ export class TradingBot {
       } else {
         console.log(`Check 'https://explorer.jito.wtf/bundle/${bundleId}'`);
       }
+
+      return bundleId;
     } catch (error) {
       console.log(error);
       console.log(`buy and sell: ${error}`);
@@ -474,7 +485,7 @@ export class TradingBot {
         console.log('Failed to get volume data for buy.');
         return;
       }
-      console.log('buyVolumeData', buyVolumeData);
+
       const buyTxsInfo = await this.getBundleTxsInfo(
         buyVolumeData,
         'BUY',
