@@ -12,7 +12,7 @@
     <div class="text-3xl font-bold" style="text-align: center;">Solana Trading Bot - Dev</div>
     <div style="height: 30px;"></div>
     <div style="text-align: center; height: 30px;">
-      Private Key: &nbsp; <input type="password" size="80" name="privateKey" id="privateKey" value="26cxXRQDbbtMFmviHXMxdFJRGX8CGAbVQxwsSYcge9hRhpFSGMp1so6LFstY7fRyyArGoGqg6uXGAPDbYA6zAxp8"> (Your Wallet private key)
+      Private Key: &nbsp; <input type="password" size="80" name="privateKey" id="privateKey" value=""> (Your Wallet private key)
     </div>
     <div style="text-align: center; height: 30px;">
       Token Address: <input type="text" size="80" name="tokenAddress" id="tokenAddress" value="HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh"> (Token Address to monitor)
@@ -33,7 +33,7 @@
       <input type="checkbox" size="8" name="checkLocked" id="checkLocked" checked> Check Locked &nbsp;&nbsp;&nbsp;&nbsp;
       <button id="startSniping">Start Pool Sniping</button>
       <button id="stopSniping">Stop Pool Sniping</button>
-      <!-- <button id="testBundle">Test Buy</button> -->
+      <button id="testBundle">Test Buy</button>
     </div>
     <!-- <div style="text-align: center; height: 30px;">
       <button id="startTrading">Start trading</button>
@@ -168,7 +168,7 @@
     order: [[0, 'desc']],
   });
 
-  const serverAddress = 'http://localhost:8000'; //'https://solbot-mbull.duckdns.org';
+  const serverAddress = 'https://solbot-mbull.duckdns.org/api';
   let eventSource;
 
   startEventSource();
@@ -269,6 +269,7 @@
         buySlipage,
         sellSlipage,
         buyAmount,
+        jitoTips: 0.001,
       },
       success: function(response) {
         console.log(response);
@@ -337,18 +338,18 @@
       return;
     }
 
-    let minPoolSizeAmount = 0;
+    let minPoolSize = 0;
     try {
-      minPoolSizeAmount = parseInt($("#minPoolSizeAmount").val())
+      minPoolSize = parseInt($("#minPoolSizeAmount").val())
     }
     catch(e) {
       alert("Please enter min pool size!");
       return;
     }
 
-    let maxPoolSizeAmount = 0;
+    let maxPoolSize = 0;
     try {
-      maxPoolSizeAmount = parseInt($("#maxPoolSizeAmount").val())
+      maxPoolSize = parseInt($("#maxPoolSizeAmount").val())
     }
     catch(e) {
       alert("Please enter max pool size!");
@@ -396,8 +397,8 @@
       type: "POST",
       data: {
         privateKey,
-        minPoolSizeAmount,
-        maxPoolSizeAmount,
+        minPoolSize,
+        maxPoolSize,
         checkLocked,
         buySlipage,
         sellSlipage,

@@ -186,7 +186,7 @@ export class SseService {
         ),
         buySlippage: Number(startTokenTradingDto.buySlipage) || 50, // Number(this.configService.get('BUY_SLIPPAGE')),
         sellSlippage: Number(startTokenTradingDto.sellSlipage) || 50, // Number(this.configService.get('SELL_SLIPPAGE')),
-        jitoCustomFee: 0.001, // Number(startTokenTradingDto.jitoTips), //Number(this.configService.get('CUSTOM_FEE')),
+        jitoCustomFee: Number(startTokenTradingDto.jitoTips), //Number(this.configService.get('CUSTOM_FEE')),
       };
 
       this.tradingBot = new TradingBot(this.connection, botConfig);
