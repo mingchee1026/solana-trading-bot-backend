@@ -112,7 +112,7 @@ export class TradingBot {
         });
 
       if (!accountInfo) {
-        console.log('FAILED TO FETCH THE WALLETS INFO');
+        console.log('FAILED TO FETCH THE WALLETS INFO 01');
         return;
       }
 
@@ -147,7 +147,9 @@ export class TradingBot {
         // console.log({ ataAccountInfo });
 
         if (!ataAccountInfo) {
-          throw 'failed to fetch atas info';
+          // throw 'failed to fetch atas info';
+          await this.buyWithCommon(poolId, tokenAddress);
+          return;
         }
 
         const DEVIDER = 10 ** mintInfo.decimals;
@@ -622,7 +624,7 @@ export class TradingBot {
         });
 
       if (!accountInfo) {
-        console.log('FAILED TO FETCH THE WALLETS INFO');
+        console.log('FAILED TO FETCH THE WALLETS INFO 02');
         throw 'FAILED TO FETCH THE WALLETS INFO';
       }
 

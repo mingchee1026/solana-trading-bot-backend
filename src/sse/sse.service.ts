@@ -354,6 +354,7 @@ export class SseService {
   };
 
   private runBundle = async (currActivity: TradingState) => {
+    // console.log('pool ID:', this.tradingPoolId);
     const lastTx = this.tradingCache.getLastActivity();
     if (lastTx) {
       // check condition
@@ -635,8 +636,8 @@ export class SseService {
     //   'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
     // );
     await this.tradingBot.buyAndSellWithBundle(
-      '7mtJbVNEtejYmCLRriwQhymZdzn4wGRFTvTZ5721b4BD',
-      'HQ7DaoiUxzC2K1Dr7KXRHccNtXvEYgNvoUextXe8dmBh',
+      'Fy34rwoH6LVFh2SVktoiAECD4V3Rq6WQgQcyVnqa5p5r',
+      'sfYDFZJguyF4YLZjje7qwwh41NRymFfZ3QXZbVm7Eyg',
     );
 
     // Pool Sniping test
