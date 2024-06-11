@@ -278,7 +278,7 @@ export class SseService {
     const priceOfBaseInQuote = quote / base;
 
     // Token USD
-    const tokenPriceUSB = priceOfBaseInQuote * 181.09;
+    const tokenPriceUSB = priceOfBaseInQuote * 155.83;
 
     const inOutChange: number[] = [];
     if (this.preSwapBaseInAmount !== '') {
@@ -305,6 +305,8 @@ export class SseService {
 
     this.preSwapQuoteInAmount = poolState.swapQuoteInAmount.toString();
     this.preSwapQuoteOutAmount = poolState.swapQuoteOutAmount.toString();
+
+    console.table(inOutChange);
 
     if (inOutChange[0] > 0) {
       const activity = {
@@ -354,7 +356,7 @@ export class SseService {
   };
 
   private runBundle = async (currActivity: TradingState) => {
-    // console.log('pool ID:', this.tradingPoolId);
+    console.log('currActivity:', currActivity);
     const lastTx = this.tradingCache.getLastActivity();
     if (lastTx) {
       // check condition
@@ -379,12 +381,12 @@ export class SseService {
 
           this.tradingCache.save(new Date().getTime(), currActivity);
 
-          if (this.tradingBot && this.tradingPoolId !== '' && this.baseToken) {
-            await this.tradingBot.buyAndSellWithBundle(
-              this.tradingPoolId,
-              this.baseToken,
-            );
-          }
+          // if (this.tradingBot && this.tradingPoolId !== '' && this.baseToken) {
+          //   await this.tradingBot.buyAndSellWithBundle(
+          //     this.tradingPoolId,
+          //     this.baseToken,
+          //   );
+          // }
 
           return;
         }
